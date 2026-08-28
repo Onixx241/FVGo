@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"main/slang"
@@ -12,14 +13,24 @@ func main() {
 	fmt.Println("-------------------------------")
 	fmt.Println("-----FVGo Frontend for Z3------")
 
-	if slang.CheckIfSlangExists() {
+	var filevar string
 
-		fmt.Println("Slang exists. Parsing file")
+	flag.StringVar(&filevar, "file", "", "")
 
-		if slang.GetFileAST("Splitter.sv") { //replace this with command line arg
+	flag.Parse()
 
-			slang.GetASTJson()
-			slang.DecodeJson()
+	if filevar != "" {
+
+		if slang.CheckIfSlangExists() {
+
+			fmt.Println("Slang exists. Parsing file")
+
+			if slang.GetFileAST(filevar) {
+
+				slang.GetASTJson()
+				slang.DecodeJson()
+			}
+
 		}
 
 	}
