@@ -9,6 +9,12 @@ const (
 	SignalType
 )
 
+type TimingNode struct {
+	Kind       string
+	Expression ExpressionNode
+	Edge       string
+}
+
 type StatementNode struct {
 	Kind       string
 	BlockKind  string
@@ -37,9 +43,9 @@ type TruthNode struct {
 type ExpressionNode struct {
 	Kind            string
 	Type            string
-	Left            LeftNode
-	Right           RightNode
-	NonBlockingBool bool
+	Left            *LeftNode
+	Right           *RightNode
+	NonBlockingBool *bool
 }
 type LeftNode struct {
 	Kind   string

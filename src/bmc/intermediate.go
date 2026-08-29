@@ -7,71 +7,7 @@ import (
 	"strings"
 )
 
-type ComponentType int
-
-const (
-	InputType ComponentType = iota
-	OutputType
-	StateType
-	SignalType
-)
-
-type StatementNode struct {
-	Kind       string
-	BlockKind  string
-	Conditions ConditionalNode
-}
-type ConditionalNode struct {
-	Kind    string
-	Type    string
-	Op      string
-	Operand OperandNode
-}
-type OperandNode struct {
-	Kind     string
-	Type     string
-	Symbol   *string
-	Operand  *OperandNode
-	Value    *string
-	Constant *string
-}
-
-type TruthNode struct {
-	Kind       string
-	Expression ExpressionNode
-}
-
-type ExpressionNode struct {
-	Kind            string
-	Type            string
-	Left            LeftNode
-	Right           RightNode
-	NonBlockingBool bool
-}
-type LeftNode struct {
-	Kind   string
-	Type   string
-	Symbol string
-}
-type RightNode struct {
-	Kind    string
-	Type    string
-	Operand OperandNode
-}
-
-type IRNode struct {
-	Name  string
-	Type  ComponentType
-	Width int
-}
-
-type DesignGraph struct {
-	Inputs  []IRNode
-	States  []IRNode
-	Signals []IRNode
-}
-
-func AstInstance(ast slang.SlangAST) map[string]IRNode {
+func AstInstance(ast slang.SlangAST) (dict map[string]IRNode, design DesignGraph) {
 
 	componentDict := make(map[string]IRNode)
 	var graph DesignGraph
@@ -96,7 +32,7 @@ func AstInstance(ast slang.SlangAST) map[string]IRNode {
 
 	}
 
-	return componentDict
+	return componentDict, graph
 
 }
 
@@ -129,35 +65,30 @@ func ParseBitWidth(unparsed string) int {
 			return 0
 		}
 
-		finalnum := leftnum - rightnum
-
-		if rightnum == 0 || leftnum == 0 {
-
-			if finalnum < 0 {
-
-				finalnum--
-
-			} else {
-
-				finalnum++
-
-			}
-
-		}
+		finalnum := (leftnum - rightnum)
 
 		if finalnum < 0 {
+			finalnum--
 			return -finalnum
 		} else {
+			finalnum++
 			return finalnum
 		}
 
 	}
 }
 
-func ParseSymbol(name string) { //return string when i implement
-	panic("not implemented")
+func ParseSymbol(name string) string {
+
+	return strings.Split(name, " ")[1]
+
 }
 
 func RecurseAST(member slang.MemberNode, graph *DesignGraph) {
 	panic("not implemented")
+	// switch member.Kind {
+	// case "ProceduralBlock":
+	// 	RecurseAST(member.Body.)
+
+	// }
 }
