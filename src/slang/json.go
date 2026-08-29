@@ -2,13 +2,12 @@ package slang
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"os"
 )
 
-func DecodeJson() bool {
+func DecodeJson() SlangAST {
 
 	astJson, err := os.Open("dump")
 
@@ -29,23 +28,8 @@ func DecodeJson() bool {
 	err = json.Unmarshal(fileBytes, &ast)
 	if err != nil {
 		log.Fatal(err)
-		return false
+		return SlangAST{}
 	}
 
-	for _, node := range ast.Design.Members {
-
-		for _, bodyinfo := range node.Body.Members {
-			fmt.Println(bodyinfo.Name)
-			fmt.Println(bodyinfo.Kind)
-			fmt.Println(bodyinfo.Type)
-
-			if bodyinfo.Direction != "" {
-				fmt.Println(bodyinfo.Direction)
-			}
-
-		}
-
-	}
-
-	return true
+	return ast
 }

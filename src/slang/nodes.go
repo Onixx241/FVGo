@@ -13,14 +13,15 @@ type Design struct {
 }
 
 type MemberNode struct {
-	Name           string      `json:"name"`
-	Kind           string      `json:"kind"`
-	Addr           int64       `json:"addr"`
-	Type           string      `json:"type,omitempty"`
-	Direction      string      `json:"direction,omitempty"`
-	InternalSymbol string      `json:"internalSymbol,omitempty"`
-	NetType        NetTypeNode `json:"netType,omitempty"`
-	Body           BodyNode    `json:"body,omitempty"`
+	Name           string       `json:"name"`
+	Kind           string       `json:"kind"`
+	Addr           int64        `json:"addr"`
+	ProcedureKind  string       `json:"procedureKind,omitempty"`
+	Type           string       `json:"type,omitempty"`
+	Direction      string       `json:"direction,omitempty"`
+	InternalSymbol string       `json:"internalSymbol,omitempty"`
+	NetType        *NetTypeNode `json:"netType,omitempty"`
+	Body           *BodyNode    `json:"body,omitempty"`
 }
 
 type BodyNode struct {

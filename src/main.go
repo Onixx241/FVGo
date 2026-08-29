@@ -4,22 +4,31 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"main/bmc"
 	"main/slang"
 	"os"
+	//"github.com/aclements/go-z3/z3"
 )
 
 func main() {
 
-	fmt.Println("-------------------------------")
-	fmt.Println("-----FVGo Frontend for Z3------")
+	fmt.Println("-------------------------------------------------------------------------")
+	fmt.Println("---------------------------FVGo Frontend for Z3--------------------------")
+	fmt.Println("-------------------------------------------------------------------------")
 
 	var filevar string
 
-	flag.StringVar(&filevar, "file", "", "")
+	debug := false
 
-	flag.Parse()
+	if debug {
+		filevar = "test.sv"
+	} else {
+		flag.StringVar(&filevar, "file", "", "")
 
-	if filevar != "" {
+		flag.Parse()
+	}
+
+	if filevar != "" || debug {
 
 		if slang.CheckIfSlangExists() {
 
@@ -28,18 +37,22 @@ func main() {
 			if slang.GetFileAST(filevar) {
 
 				slang.GetASTJson()
-				slang.DecodeJson()
+
+				ast := slang.DecodeJson()
+
+				bmc.AstInstance(ast)
+
 			}
 
 		}
 
-	}
+		cleanUpArtifacts()
 
-	cleanUpArtifact()
+	}
 
 }
 
-func cleanUpArtifact() {
+func cleanUpArtifacts() {
 	err := os.Remove("dump")
 	if err != nil {
 		log.Fatal(err)
