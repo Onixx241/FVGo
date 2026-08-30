@@ -7,65 +7,78 @@ const (
 	OutputType
 	StateType
 	SignalType
+	GateType
+	ConstantType
 )
 
 type TimingNode struct {
-	Kind       string
-	Expression ExpressionNode
-	Edge       string
+	Kind       string         `json:"kind"`
+	Expression ExpressionNode `json:"expr"`
+	Edge       string         `json:"edge"`
 }
 
 type StatementNode struct {
-	Kind       string
-	BlockKind  string
-	Conditions ConditionalNode
+	Kind       string            `json:"kind"`
+	BlockKind  string            `json:"blockKind"`
+	Conditions []ConditionalNode `json:"conditions"`
+	Body       *BodyNode         `json:"body"`
+	Expression *ExpressionNode   `json:"expr"`
 }
 type ConditionalNode struct {
-	Kind    string
-	Type    string
-	Op      string
-	Operand OperandNode
+	Kind    string          `json:"kind"`
+	Type    string          `json:"type"`
+	Op      string          `json:"op"`
+	Operand OperandNode     `json:"operand"`
+	Expr    *ExpressionNode `json:"expr"`
 }
 type OperandNode struct {
-	Kind     string
-	Type     string
-	Symbol   *string
-	Operand  *OperandNode
-	Value    *string
-	Constant *string
+	Kind     string       `json:"kind"`
+	Type     string       `json:"type"`
+	Symbol   *string      `json:"symbol"`
+	Operand  *OperandNode `json:"operand"`
+	Value    *string      `json:"value"`
+	Constant *string      `json:"constant"`
 }
 
 type TruthNode struct {
-	Kind       string
-	Expression ExpressionNode
+	Kind string         `json:"kind"`
+	Expr ExpressionNode `json:"expr"`
 }
 
-type ExpressionNode struct {
-	Kind            string
-	Type            string
-	Left            *LeftNode
-	Right           *RightNode
-	NonBlockingBool *bool
+type ExpressionNode struct { //acts like a general node sometimes, maybe make a dedicated general node?
+	Kind            string       `json:"kind"`
+	Type            string       `json:"type"`
+	Symbol          string       `json:"symbol"`
+	Left            *LeftNode    `json:"left,omitempty"`
+	Right           *RightNode   `json:"right,omitempty"`
+	Op              string       `json:"op,omitempty"`
+	Operand         *OperandNode `json:"operand,omitempty"`
+	NonBlockingBool *bool        `json:"isNonBlocking,omitempty"`
+	Value           *string      `json:"value,omitempty"`
+	Constant        *string      `json:"constant,omitempty"`
 }
 type LeftNode struct {
-	Kind   string
-	Type   string
-	Symbol string
+	Kind   string `json:"kind"`
+	Type   string `json:"type"`
+	Symbol string `json:"symbol"`
 }
 type RightNode struct {
-	Kind    string
-	Type    string
-	Operand OperandNode
+	Kind     string      `json:"kind"`
+	Type     string      `json:"type"`
+	Operand  OperandNode `json:"operand"`
+	Constant *string     `json:"constant,omitempty"`
 }
 
 type IRNode struct {
-	Name  string
-	Type  ComponentType
-	Width int
+	Name      string
+	Type      ComponentType
+	Width     int
+	Inputs    []*IRNode
+	NextState *IRNode
 }
 
 type DesignGraph struct {
-	Inputs  []IRNode
-	States  []IRNode
-	Signals []IRNode
+	Inputs  []*IRNode
+	States  []*IRNode
+	Signals []*IRNode
 }

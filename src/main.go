@@ -12,13 +12,11 @@ import (
 
 func main() {
 
-	fmt.Println("-------------------------------------------------------------------------")
-	fmt.Println("---------------------------FVGo Frontend for Z3--------------------------")
-	fmt.Println("-------------------------------------------------------------------------")
+	PrintBanner()
 
 	var filevar string
 
-	debug := false
+	debug := true
 
 	if debug {
 		filevar = "test.sv"
@@ -57,4 +55,12 @@ func cleanUpArtifacts() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func PrintBanner() {
+
+	fmt.Println("-------------------------------------------------------------------------")
+	fmt.Println("---------------------------FVGo Frontend for Z3--------------------------")
+	fmt.Println("-------------------------------------------------------------------------")
+
 }
