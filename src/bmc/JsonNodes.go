@@ -13,16 +13,24 @@ type Design struct {
 }
 
 type MemberNode struct {
-	Name           string       `json:"name"`
-	Kind           string       `json:"kind"`
-	Addr           int64        `json:"addr"`
-	ProcedureKind  string       `json:"procedureKind,omitempty"`
-	Type           string       `json:"type,omitempty"`
-	LifeTime       string       `json:"lifetime,omitempty"`
-	Direction      string       `json:"direction,omitempty"`
-	InternalSymbol string       `json:"internalSymbol,omitempty"`
-	NetType        *NetTypeNode `json:"netType,omitempty"`
-	Body           *BodyNode    `json:"body,omitempty"`
+	Name           string           `json:"name"`
+	Kind           string           `json:"kind"`
+	Addr           int64            `json:"addr"`
+	ProcedureKind  string           `json:"procedureKind,omitempty"`
+	Type           string           `json:"type,omitempty"`
+	LifeTime       string           `json:"lifetime,omitempty"`
+	Direction      string           `json:"direction,omitempty"`
+	Value          string           `json:"value,omitempty"`
+	InternalSymbol string           `json:"internalSymbol,omitempty"`
+	NetType        *NetTypeNode     `json:"netType,omitempty"`
+	Body           *BodyNode        `json:"body,omitempty"`
+	Initializer    *InitializerNode `json:"initializer,omitempty"`
+	Assignment     *ExpressionNode  `json:"assignment,omitempty"`
+}
+
+type ItemsNode struct {
+	Expressions []*ExpressionNode `json:"expressions,omitempty"`
+	Statement   *StatementNode    `json:"stmt,omitempty"`
 }
 
 type BodyNode struct {
@@ -33,7 +41,20 @@ type BodyNode struct {
 	Timing     *TimingNode       `json:"timing,omitempty"`
 	Statement  *StatementNode    `json:"stmt,omitempty"`
 	Conditions []ConditionalNode `json:"conditions,omitempty"`
+	List       []*ListNode       `json:"list,omitempty"`
+	Items      []*ItemsNode      `json:"items,omitempty"`
 	IfTrue     *TruthNode        `json:"ifTrue,omitempty"`
+	IfFalse    *TruthNode        `json:"ifFalse,omitempty"`
+	Expression *ExpressionNode   `json:"expr,omitempty"`
+}
+
+type ListNode struct {
+	Kind       string             `json:"kind"`
+	Expression *ExpressionNode    `json:"expr,omitempty"`
+	Conditions *[]ConditionalNode `json:"conditions,omitempty"`
+	IfTrue     *TruthNode         `json:"ifTrue,omitempty"`
+	IfFalse    *TruthNode         `json:"ifFalse,omitempty"`
+	Assignment *ExpressionNode    `json:"assignment,omitempty"`
 }
 
 type NetTypeNode struct {

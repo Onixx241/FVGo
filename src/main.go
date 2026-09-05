@@ -16,7 +16,7 @@ func main() {
 
 	var filevar string
 
-	debug := true
+	debug := false
 
 	if debug {
 		filevar = "test.sv"
@@ -38,7 +38,11 @@ func main() {
 
 				ast := slang.DecodeJson()
 
-				bmc.AstInstance(ast)
+				dict, graph := bmc.AstInstance(ast)
+
+				_ = dict
+
+				bmc.DumpFlattened(graph)
 
 			}
 
