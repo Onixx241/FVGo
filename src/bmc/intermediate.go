@@ -59,6 +59,17 @@ func AstInstance(ast SlangAST) (dict map[string]*IRNode, design DesignGraph) {
 				}
 
 			case "ProceduralBlock":
+
+				if component.Body != nil && component.Body.Kind == "ConcurrentAssertion" && component.Body.PropertySpec != nil {
+
+					a := LowerConcurrentAssertion(component.Body, componentDict)
+
+					if a != nil {
+						graph.AssertionIRs = append(graph.AssertionIRs, a)
+					}
+
+				}
+
 				proc := &ProcessIR{Kind: component.ProcedureKind}
 
 				if component.Body != nil && component.Body.Timing != nil {
@@ -86,10 +97,39 @@ func AstInstance(ast SlangAST) (dict map[string]*IRNode, design DesignGraph) {
 	return componentDict, graph
 }
 
+func ExtractAssignmentFromListItem(listitem *ListNode) *ExpressionNode {
+
+	if listitem == nil {
+		return nil
+	}
+
+	if listitem.Kind == "ProceduralAssign" && listitem.Assignment != nil && listitem.Assignment.Kind == "Assignment" {
+		return listitem.Assignment
+	}
+
+	if listitem.Kind == "ExpressionStatement" && listitem.Expression != nil && listitem.Expression.Kind == "Assignment" {
+		return listitem.Expression
+	}
+
+	if listitem.Assignment != nil && listitem.Assignment.Kind == "Assignment" {
+		return listitem.Assignment
+	}
+
+	if listitem.Expression != nil && listitem.Expression.Kind == "Assignment" {
+		return listitem.Expression
+	}
+
+	return nil
+}
+
 func WalkBodyLower(body *BodyNode, dict map[string]*IRNode, graph *DesignGraph, proc *ProcessIR, guard *ExprIR, order *int) {
 
 	if body == nil {
 		return
+	}
+
+	if body.Body != nil {
+		WalkBodyLower(body.Body, dict, graph, proc, guard, order)
 	}
 
 	if body.Kind == "ExpressionStatement" && body.Expression != nil {
@@ -143,16 +183,14 @@ func WalkBodyLower(body *BodyNode, dict map[string]*IRNode, graph *DesignGraph, 
 
 		for _, listitem := range body.List {
 
-			if listitem.Kind == "ExpressionStatement" && listitem.Expression != nil {
-
-				LowerAssignment(*listitem.Expression, dict, proc, guard, order)
-
+			if listitem == nil {
+				continue
 			}
 
-			if listitem.Kind == "ProceduralAssign" && listitem.Assignment != nil {
+			expr := ExtractAssignmentFromListItem(listitem)
 
-				LowerAssignment(*listitem.Assignment, dict, proc, guard, order)
-
+			if expr != nil {
+				LowerAssignment(*expr, dict, proc, guard, order)
 			}
 
 			if listitem.Kind == "Conditional" && listitem.Conditions != nil {
@@ -309,7 +347,7 @@ func LowerAssignment(node ExpressionNode, dict map[string]*IRNode, proc *Process
 		Order:       *order,
 	}
 
-	*order++
+	*order = *order + 1
 
 	proc.Assignments = append(proc.Assignments, assign)
 
@@ -322,15 +360,82 @@ func LowerAssignment(node ExpressionNode, dict map[string]*IRNode, proc *Process
 func LowerRight(node RightNode, dict map[string]*IRNode) *ExprIR {
 
 	if node.Symbol != "" {
-
 		return SymbolExpr(node.Symbol, node.Type)
-
 	}
 
 	if node.Constant != nil {
-
 		return &ExprIR{Kind: "IntegerLiteral", Type: node.Type, Value: *node.Constant, Width: ParseBitWidth(node.Type)}
+	}
 
+	if node.Kind == "ConditionalOp" {
+
+		c := &ExprIR{Kind: "ConditionalOp", Type: node.Type, Width: ParseBitWidth(node.Type)}
+
+		if node.Conditions != nil && len(*node.Conditions) > 0 {
+			if (*node.Conditions)[0].Expr != nil {
+				c.Args = append(c.Args, LowerExpr(*(*node.Conditions)[0].Expr, dict))
+			}
+		}
+
+		if node.Left != nil {
+			c.Args = append(c.Args, LowerExpr(ConvertLeftNode(node.Left), dict))
+		}
+
+		if node.Right != nil {
+			c.Args = append(c.Args, LowerRight(*node.Right, dict))
+		}
+
+		return c
+	}
+
+	if node.Kind == "BinaryOp" {
+
+		e := &ExprIR{Kind: "BinaryOp", Op: node.Op, Type: node.Type, Width: ParseBitWidth(node.Type)}
+
+		if node.Left != nil {
+			e.Left = LowerExpr(ConvertLeftNode(node.Left), dict)
+		}
+
+		if node.Right != nil {
+			e.Right = LowerRight(*node.Right, dict)
+		}
+
+		return e
+	}
+
+	if node.Kind == "Conversion" {
+
+		if node.Symbol != "" {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  SymbolExpr(node.Symbol, node.Type),
+			}
+		}
+
+		if node.Constant != nil {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  &ExprIR{Kind: "IntegerLiteral", Type: node.Type, Value: *node.Constant, Width: ParseBitWidth(node.Type)},
+			}
+		}
+
+		opExpr := LowerOperand(&node.Operand, dict)
+
+		if opExpr == nil || opExpr.Kind == "" || opExpr.Kind == "Nil" {
+
+			opExpr = &ExprIR{Kind: "IntegerLiteral", Type: node.Type, Value: "0", Width: ParseBitWidth(node.Type)}
+		}
+
+		return &ExprIR{
+			Kind:  "Conversion",
+			Type:  node.Type,
+			Width: ParseBitWidth(node.Type),
+			Left:  opExpr,
+		}
 	}
 
 	return LowerOperand(&node.Operand, dict)
@@ -369,7 +474,64 @@ func LowerExpr(node ExpressionNode, dict map[string]*IRNode) *ExprIR {
 
 		}
 
-		return &ExprIR{Kind: "Conversion", Type: node.Type, Width: ParseBitWidth(node.Type)}
+		if node.Left != nil {
+
+			return &ExprIR{
+
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  LowerExpr(ConvertLeftNode(node.Left), dict),
+			}
+
+		}
+
+		if node.Symbol != "" {
+
+			return &ExprIR{
+
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  SymbolExpr(node.Symbol, node.Type),
+			}
+
+		}
+
+		if node.Constant != nil {
+
+			return &ExprIR{
+
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  &ExprIR{Kind: "IntegerLiteral", Type: node.Type, Value: *node.Constant, Width: ParseBitWidth(node.Type)},
+			}
+
+		}
+
+		if node.Value != nil {
+
+			return &ExprIR{
+
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  &ExprIR{Kind: "IntegerLiteral", Type: node.Type, Value: *node.Value, Width: ParseBitWidth(node.Type)},
+			}
+
+		}
+
+		if node.OperandExpr != nil {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  node.Type,
+				Width: ParseBitWidth(node.Type),
+				Left:  LowerExpr(*node.OperandExpr, dict),
+			}
+		}
+
+		return &ExprIR{Kind: "Conversion", Type: node.Type, Width: ParseBitWidth(node.Type), Left: &ExprIR{Kind: "Nil"}}
 
 	case "UnaryOp":
 
@@ -474,18 +636,52 @@ func LowerOperand(op *OperandNode, dict map[string]*IRNode) *ExprIR {
 
 	case "Conversion":
 
-		return &ExprIR{
+		if op.Operand != nil {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  op.Type,
+				Width: ParseBitWidth(op.Type),
+				Left:  LowerOperand(op.Operand, dict),
+			}
+		}
 
+		if op.Symbol != nil {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  op.Type,
+				Width: ParseBitWidth(op.Type),
+				Left:  SymbolExpr(*op.Symbol, op.Type),
+			}
+		}
+
+		if op.Constant != nil {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  op.Type,
+				Width: ParseBitWidth(op.Type),
+				Left:  &ExprIR{Kind: "IntegerLiteral", Type: op.Type, Value: *op.Constant, Width: ParseBitWidth(op.Type)},
+			}
+		}
+
+		if op.Value != nil {
+			return &ExprIR{
+				Kind:  "Conversion",
+				Type:  op.Type,
+				Width: ParseBitWidth(op.Type),
+				Left:  &ExprIR{Kind: "IntegerLiteral", Type: op.Type, Value: *op.Value, Width: ParseBitWidth(op.Type)},
+			}
+		}
+
+		return &ExprIR{
 			Kind:  "Conversion",
 			Type:  op.Type,
 			Width: ParseBitWidth(op.Type),
-			Left:  LowerOperand(op.Operand, dict),
+			Left:  &ExprIR{Kind: "Nil"},
 		}
 
 	case "UnaryOp":
 
 		return &ExprIR{
-
 			Kind:  "UnaryOp",
 			Op:    op.Op,
 			Type:  op.Type,
@@ -498,36 +694,30 @@ func LowerOperand(op *OperandNode, dict map[string]*IRNode) *ExprIR {
 		e := &ExprIR{Kind: "BinaryOp", Op: op.Op, Type: op.Type, Width: ParseBitWidth(op.Type)}
 
 		if op.Left != nil {
-
 			e.Left = LowerExpr(*op.Left, dict)
-
 		}
 
 		if op.Right != nil {
-
 			e.Right = LowerExpr(*op.Right, dict)
-
 		}
 
 		return e
-
 	}
 
 	if op.Symbol != nil {
-
 		return SymbolExpr(*op.Symbol, op.Type)
-
 	}
+
 	if op.Constant != nil {
-
 		return &ExprIR{Kind: "IntegerLiteral", Type: op.Type, Value: *op.Constant, Width: ParseBitWidth(op.Type)}
+	}
 
+	if op.Value != nil {
+		return &ExprIR{Kind: "IntegerLiteral", Type: op.Type, Value: *op.Value, Width: ParseBitWidth(op.Type)}
 	}
 
 	if op.Operand != nil {
-
 		return LowerOperand(op.Operand, dict)
-
 	}
 
 	return &ExprIR{Kind: op.Kind, Type: op.Type, Width: ParseBitWidth(op.Type)}
@@ -651,6 +841,60 @@ func ParseBitWidth(unparsed string) int {
 	return 32
 }
 
+func LowerConcurrentAssertion(body *BodyNode, dict map[string]*IRNode) *AssertionIR {
+
+	if body == nil || body.PropertySpec == nil || body.PropertySpec.Expression == nil {
+		return nil
+	}
+
+	property := body.PropertySpec.Expression
+
+	if property.Kind != "Binary" { //fixed crash
+		return nil
+	}
+
+	out := &AssertionIR{
+
+		Kind:        body.AssertionKind,
+		Implication: property.Op,
+	}
+
+	if body.PropertySpec.Clocking != nil {
+		out.ClockEdge = body.PropertySpec.Clocking.Edge
+		out.ClockSignal = ParseSymbol(body.PropertySpec.Clocking.Edge)
+	}
+
+	if property.Left != nil && property.Left.Expr != nil {
+		out.Antecedent = LowerExpr(*property.Left.Expr, dict)
+	}
+
+	if property.Right != nil {
+
+		if property.Right.Kind == "SequenceConcat" && len(property.Right.Elements) > 0 {
+			element := property.Right.Elements[0]
+
+			out.DelayMin = element.Min
+			out.DelayMax = element.Max
+
+			if element.Sequence != nil && element.Sequence.Expr != nil {
+
+				out.Consequent = LowerExpr(*element.Sequence.Expr, dict)
+
+			}
+
+		} else if property.Right.Expr != nil {
+
+			out.DelayMin = 0
+			out.DelayMax = 0
+			out.Consequent = LowerExpr(*property.Right.Expr, dict)
+		}
+
+	}
+
+	return out
+
+}
+
 func ParseSymbol(name string) string {
 
 	parts := strings.Fields(name)
@@ -738,7 +982,23 @@ func OperandSelectorHelper(ExpressionOperand *OperandNode, Selector string) *str
 }
 
 func ConvertLeftNode(left *LeftNode) ExpressionNode {
-	return ExpressionNode{Kind: left.Kind, Type: left.Type, Symbol: left.Symbol}
+
+	if left == nil {
+		return ExpressionNode{}
+	}
+
+	return ExpressionNode{
+		Kind:       left.Kind,
+		Type:       left.Type,
+		Symbol:     left.Symbol,
+		Operand:    left.Operand,
+		Left:       left.Left,
+		Right:      left.Right,
+		Op:         left.Op,
+		Conditions: left.Conditions,
+		Value:      left.Value,
+		Constant:   left.Constant,
+	}
 }
 
 func ConvertRightNode(right *RightNode) ExpressionNode {
@@ -761,36 +1021,4 @@ func ParseGateType(gateString string) LogicalType {
 		return NilGate
 
 	}
-}
-
-func ProcessExpressionStatement(node ExpressionNode, dict map[string]*IRNode) IRNode {
-
-	signalComb := &IRNode{Name: "SignalComb", Type: SignalType}
-
-	if node.Right != nil {
-
-		if node.Right.Symbol != "" {
-
-			ref := ParseSymbol(node.Right.Symbol)
-
-			if dict[ref] != nil {
-
-				signalComb.Inputs = append(signalComb.Inputs, dict[ref])
-
-			}
-
-		} else if node.Right.Constant != nil {
-
-			c := &IRNode{Name: *node.Right.Constant, Type: ConstantType, Width: ParseBitWidth(node.Right.Type)}
-
-			signalComb.Inputs = append(signalComb.Inputs, c)
-
-		} else if node.Right.Operand.Op != "" {
-
-			signalComb.Op = node.Right.Operand.Op
-
-		}
-
-	}
-	return *signalComb
 }

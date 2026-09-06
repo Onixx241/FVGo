@@ -25,7 +25,6 @@ type MemberNode struct {
 	NetType        *NetTypeNode     `json:"netType,omitempty"`
 	Body           *BodyNode        `json:"body,omitempty"`
 	Initializer    *InitializerNode `json:"initializer,omitempty"`
-	Assignment     *ExpressionNode  `json:"assignment,omitempty"`
 }
 
 type ItemsNode struct {
@@ -34,18 +33,46 @@ type ItemsNode struct {
 }
 
 type BodyNode struct {
-	Name       string            `json:"name"`
+	Name          string            `json:"name"`
+	Kind          string            `json:"kind"`
+	Addr          int64             `json:"addr"`
+	Members       []MemberNode      `json:"members"`
+	Timing        *TimingNode       `json:"timing,omitempty"`
+	Statement     *StatementNode    `json:"stmt,omitempty"`
+	Conditions    []ConditionalNode `json:"conditions,omitempty"`
+	List          []*ListNode       `json:"list,omitempty"`
+	Items         []*ItemsNode      `json:"items,omitempty"`
+	IfTrue        *TruthNode        `json:"ifTrue,omitempty"`
+	IfFalse       *TruthNode        `json:"ifFalse,omitempty"`
+	Expression    *ExpressionNode   `json:"expr,omitempty"`
+	Body          *BodyNode         `json:"body,omitempty"`
+	PropertySpec  *PropertySpecNode `json:"propertySpec,omitempty"`
+	AssertionKind string            `json:"assertionKind,omitempty"`
+}
+
+type PropertySpecNode struct {
 	Kind       string            `json:"kind"`
-	Addr       int64             `json:"addr"`
-	Members    []MemberNode      `json:"members"`
-	Timing     *TimingNode       `json:"timing,omitempty"`
-	Statement  *StatementNode    `json:"stmt,omitempty"`
-	Conditions []ConditionalNode `json:"conditions,omitempty"`
-	List       []*ListNode       `json:"list,omitempty"`
-	Items      []*ItemsNode      `json:"items,omitempty"`
-	IfTrue     *TruthNode        `json:"ifTrue,omitempty"`
-	IfFalse    *TruthNode        `json:"ifFalse,omitempty"`
-	Expression *ExpressionNode   `json:"expr,omitempty"`
+	Clocking   *TimingNode       `json:"clocking,omitempty"`
+	Expression *PropertyExprNode `json:"expr,omitempty"`
+}
+
+type PropertyExprNode struct {
+	Kind  string            `json:"kind"`
+	Op    string            `json:"op,omitempty"`
+	Left  *PropertyTermNode `json:"left,omitempty"`
+	Right *PropertyTermNode `json:"right,omitempty"`
+}
+
+type PropertyTermNode struct {
+	Kind     string                 `json:"kind"`
+	Expr     *ExpressionNode        `json:"expr,omitempty"`
+	Elements []*PropertyElementNode `json:"elements,omitempty"`
+}
+
+type PropertyElementNode struct {
+	Sequence *PropertyTermNode `json:"sequence,omitempty"`
+	Min      int               `json:"min,omitempty"`
+	Max      int               `json:"max,omitempty"`
 }
 
 type ListNode struct {
@@ -55,6 +82,7 @@ type ListNode struct {
 	IfTrue     *TruthNode         `json:"ifTrue,omitempty"`
 	IfFalse    *TruthNode         `json:"ifFalse,omitempty"`
 	Assignment *ExpressionNode    `json:"assignment,omitempty"`
+	IsForce    *bool              `json:"isForce,omitempty"`
 }
 
 type NetTypeNode struct {

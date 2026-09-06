@@ -3,7 +3,7 @@ package bmc
 type ComponentType int
 
 const (
-	InputType ComponentType = iota
+	InputType ComponentType = iota //clean this later
 	OutputType
 	StateType
 	SignalType
@@ -48,15 +48,16 @@ type ConditionalNode struct {
 }
 
 type OperandNode struct {
-	Kind     string          `json:"kind"`
-	Type     string          `json:"type"`
-	Symbol   *string         `json:"symbol"`
-	Operand  *OperandNode    `json:"operand"`
-	Value    *string         `json:"value"`
-	Constant *string         `json:"constant"`
-	Op       string          `json:"op,omitempty"`
-	Left     *ExpressionNode `json:"left,omitempty"`
-	Right    *ExpressionNode `json:"right,omitempty"`
+	Kind        string          `json:"kind"`
+	Type        string          `json:"type"`
+	Symbol      *string         `json:"symbol"`
+	Operand     *OperandNode    `json:"operand"`
+	OperandExpr *ExpressionNode `json:"operandExpr,omitempty"`
+	Value       *string         `json:"value"`
+	Constant    *string         `json:"constant"`
+	Op          string          `json:"op,omitempty"`
+	Left        *ExpressionNode `json:"left,omitempty"`
+	Right       *ExpressionNode `json:"right,omitempty"`
 }
 
 type TruthNode struct {
@@ -68,29 +69,42 @@ type TruthNode struct {
 type ExpressionNode struct { //acts like a general node sometimes maybe make a new general one?
 	Kind            string             `json:"kind"`
 	Type            string             `json:"type"`
-	Symbol          string             `json:"symbol"`
-	Left            *LeftNode          `json:"left,omitempty"`
-	Right           *RightNode         `json:"right,omitempty"`
-	Op              string             `json:"op,omitempty"`
-	Operand         *OperandNode       `json:"operand,omitempty"`
-	Conditions      *[]ConditionalNode `json:"conditions,omitempty"`
-	NonBlockingBool *bool              `json:"isNonBlocking,omitempty"`
+	Symbol          string             `json:"symbol,omitempty"`
 	Value           *string            `json:"value,omitempty"`
 	Constant        *string            `json:"constant,omitempty"`
+	Operand         *OperandNode       `json:"operand,omitempty"`
+	OperandExpr     *ExpressionNode    `json:"operandExpr,omitempty"`
+	Op              string             `json:"op,omitempty"`
+	Left            *LeftNode          `json:"left,omitempty"`
+	Right           *RightNode         `json:"right,omitempty"`
+	Conditions      *[]ConditionalNode `json:"conditions,omitempty"`
+	NonBlockingBool *bool              `json:"isNonBlocking,omitempty"`
 }
 
 type LeftNode struct {
-	Kind   string `json:"kind"`
-	Type   string `json:"type"`
-	Symbol string `json:"symbol"`
+	Kind       string             `json:"kind"`
+	Type       string             `json:"type"`
+	Symbol     string             `json:"symbol,omitempty"`
+	Operand    *OperandNode       `json:"operand,omitempty"`
+	Left       *LeftNode          `json:"left,omitempty"`
+	Right      *RightNode         `json:"right,omitempty"`
+	Op         string             `json:"op,omitempty"`
+	Conditions *[]ConditionalNode `json:"conditions,omitempty"`
+	Value      *string            `json:"value,omitempty"`
+	Constant   *string            `json:"constant,omitempty"`
 }
 
 type RightNode struct {
-	Kind     string      `json:"kind"`
-	Type     string      `json:"type"`
-	Symbol   string      `json:"symbol,omitempty"`
-	Operand  OperandNode `json:"operand"`
-	Constant *string     `json:"constant,omitempty"`
+	Kind       string             `json:"kind"`
+	Type       string             `json:"type"`
+	Symbol     string             `json:"symbol,omitempty"`
+	Operand    OperandNode        `json:"operand,omitempty"`
+	Constant   *string            `json:"constant,omitempty"`
+	Left       *LeftNode          `json:"left,omitempty"`
+	Right      *RightNode         `json:"right,omitempty"`
+	Op         string             `json:"op,omitempty"`
+	Conditions *[]ConditionalNode `json:"conditions,omitempty"`
+	Value      *string            `json:"value,omitempty"`
 }
 
 type ExpressionStatement struct {
@@ -99,12 +113,11 @@ type ExpressionStatement struct {
 }
 
 type IRNode struct {
-	Name  string
-	Type  ComponentType
-	Gate  *LogicalType
-	Width int
-	Op    string
-
+	Name      string
+	Type      ComponentType
+	Gate      *LogicalType
+	Width     int
+	Op        string
 	Inputs    []*IRNode
 	NextState *IRNode
 }
@@ -159,6 +172,17 @@ type ProcessIR struct {
 	Assignments []*GuardedAssign
 }
 
+type AssertionIR struct {
+	Kind        string
+	ClockEdge   string
+	ClockSignal string
+	Implication string
+	Antecedent  *ExprIR
+	DelayMin    int
+	DelayMax    int
+	Consequent  *ExprIR
+}
+
 type DesignGraph struct {
 	Inputs             []*IRNode
 	Outputs            []*IRNode
@@ -169,4 +193,5 @@ type DesignGraph struct {
 	ConditionalResults []*ConditionalResultNode
 	Expressions        []*ExpressionNode
 	ProcessIRs         []*ProcessIR
+	AssertionIRs       []*AssertionIR
 }
