@@ -7,7 +7,8 @@ import (
 	"main/bmc"
 	"main/slang"
 	"os"
-	//"github.com/aclements/go-z3/z3"
+
+	z3 "github.com/Z3Prover/z3/src/api/go"
 )
 
 func main() {
@@ -16,7 +17,7 @@ func main() {
 
 	var filevar string
 
-	debug := false
+	debug := true
 
 	if debug {
 		filevar = "test.sv"
@@ -44,11 +45,18 @@ func main() {
 
 				bmc.DumpFlattened(graph)
 
+				bmc.DumpAssertions(graph)
+
+				ctx := z3.NewContext()
+				solver := ctx.NewSolver()
+
+				solver.Assert(&z3.Expr{})
+
 			}
 
 		}
 
-		cleanUpArtifacts()
+		cleanUpArtifacts() //maybe add keep artifacts bool for debugging
 
 	}
 

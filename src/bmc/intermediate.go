@@ -861,9 +861,9 @@ func LowerConcurrentAssertion(body *BodyNode, dict map[string]*IRNode) *Assertio
 
 	if body.PropertySpec.Clocking != nil {
 		out.ClockEdge = body.PropertySpec.Clocking.Edge
-		out.ClockSignal = ParseSymbol(body.PropertySpec.Clocking.Edge)
+		out.ClockSignal = ParseSymbol(body.PropertySpec.Clocking.Expression.Symbol)
 	}
-
+	//take into account sensitivity list with i rst or other async signals
 	if property.Left != nil && property.Left.Expr != nil {
 		out.Antecedent = LowerExpr(*property.Left.Expr, dict)
 	}
