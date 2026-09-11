@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"io"
 	"log"
-	"main/bmc"
+	"main/bmc/nodes"
 	"os"
 )
 
-func DecodeJson() bmc.SlangAST {
+func DecodeJson() nodes.SlangAST {
 
 	astJson, err := os.Open("dump")
 
@@ -24,12 +24,12 @@ func DecodeJson() bmc.SlangAST {
 		log.Fatal(err)
 	}
 
-	var ast bmc.SlangAST
+	var ast nodes.SlangAST
 
 	err = json.Unmarshal(fileBytes, &ast)
 	if err != nil {
 		log.Fatal(err)
-		return bmc.SlangAST{}
+		return nodes.SlangAST{}
 	}
 
 	return ast

@@ -1,4 +1,4 @@
-package bmc
+package nodes
 
 type ComponentType int
 

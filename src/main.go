@@ -6,11 +6,11 @@ import (
 	"log"
 	"main/bmc"
 	"main/slang"
+	"main/z3_interface"
 	"os"
-
-	z3 "github.com/Z3Prover/z3/src/api/go"
 )
 
+// move z3 import to Z3Interface.go
 func main() {
 
 	PrintBanner()
@@ -47,10 +47,8 @@ func main() {
 
 				bmc.DumpAssertions(graph)
 
-				ctx := z3.NewContext()
-				solver := ctx.NewSolver()
-
-				solver.Assert(&z3.Expr{})
+				z3_interface.Test()
+				//returning exit staus 0xc0000135
 
 			}
 

@@ -1,4 +1,4 @@
-package bmc
+package nodes
 
 type SlangAST struct {
 	Design      Design       `json:"design"`
