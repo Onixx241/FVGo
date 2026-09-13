@@ -1,6 +1,7 @@
 package bmc
 
 import (
+	"log"
 	"main/bmc/nodes"
 	"strconv"
 	"strings"
@@ -33,7 +34,58 @@ func ExtractAssignmentFromListItem(listitem *nodes.ListNode) *nodes.ExpressionNo
 
 func ParseLiteralValue(unparsed string) int {
 
-	panic("not implemented")
+	split := strings.Split(unparsed, "'")
+
+	if len(split) == 1 {
+
+		value, err := strconv.Atoi(unparsed)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return value
+
+	}
+
+	width, err := strconv.Atoi(split[0])
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	radix := string(split[1][0])
+	valStr := split[1][1:]
+
+	var base int
+	switch radix {
+
+	case "b", "B":
+		base = 2
+
+	case "h", "H":
+		base = 16
+
+	case "d", "D":
+		base = 10
+
+	case "o", "O":
+		base = 8
+
+	default:
+		return 0
+
+	}
+
+	value, err := strconv.ParseInt(valStr, base, 64)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_ = width
+
+	return int(value)
 
 }
 
