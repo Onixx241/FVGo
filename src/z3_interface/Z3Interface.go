@@ -21,12 +21,12 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 		for _, process := range graph.ProcessIRs {
 
-			for _, assign := range process.Assignments { // maybe I need assertion IOR
+			for _, assign := range process.Assignments { // maybe I need assertion IR
 
 				currentState := frameDict[assign.Target.Name][i]
 				target := frameDict[assign.Target.Name][i+1]
-				val := ExprToZ3(assign.Value, i, frameDict, ctx)
-				guard := ExprToZ3(assign.Guard, i, frameDict, ctx)
+				val := ExprToZ3(assign.Value, i, frameDict, ctx, solver)
+				guard := ExprToZ3(assign.Guard, i, frameDict, ctx, solver)
 
 				eq := ctx.MkEq(target, val) //for my implication -> guards anded and value equals target
 				falseEq := ctx.MkEq(target, currentState)
@@ -58,6 +58,28 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 	}
 
+	// for _, assertion := range graph.AssertionIRs {
+
+	// 	var failureConditions []*z3.Expr
+
+	// 	for i := 0; i < k; i++ {
+
+	// 		condition := AssertionToZ3(assertion, i, frameDict, ctx, solver)
+
+	// 		trueBool := ctx.MkBV(1, 1)
+
+	// 		implication := ctx.MkImplies(condition, trueBool)
+
+	// 		solver.Assert(implication)
+
+	// 	}
+
+	// 	if len(failureConditions) > 0 {
+
+	// 	}
+
+	// }
+
 	if solver.Check() == z3.Satisfiable {
 
 		if solver.Model() != nil {
@@ -68,11 +90,8 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 	}
 	if solver.Check() == z3.Unsatisfiable {
 
-		if solver.Model() != nil {
-			fmt.Print(solver.Model().String())
-		}
-
 		print("Unsatisfiable!")
+
 	}
 
 }
@@ -112,7 +131,19 @@ func CreateFrameVars(ctx *z3.Context, graph *nodes.DesignGraph, k int) map[strin
 	return exprMap
 }
 
-func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context) *z3.Expr {
+func AssertionToZ3(assertion *nodes.AssertionIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
+
+	if assertion == nil || assertion.Implication == "" {
+		return nil
+	}
+
+	// antecedent := ExprToZ3(assertion.Antecedent.Left, frame, frameVars, ctx, solver)
+	// consequent := ExprToZ3(assertion.Consequent.Left)
+
+	return nil
+}
+
+func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
 
 	if expr == nil || expr.Kind == "" {
 		return nil
@@ -145,8 +176,8 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 			if expr.Op == "LogicalAnd" {
 
-				left := ExprToZ3(expr.Left, frame, frameVars, ctx)
-				right := ExprToZ3(expr.Right, frame, frameVars, ctx)
+				left := ExprToZ3(expr.Left, frame, frameVars, ctx, solver)
+				right := ExprToZ3(expr.Right, frame, frameVars, ctx, solver)
 
 				implication := ctx.MkBVAnd(left, right)
 
@@ -161,21 +192,14 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 		}
 	case "ConditionalOp":
 
-		iteIf := ExprToZ3(expr.Args[0], frame, frameVars, ctx)
-		iteThen := ExprToZ3(expr.Args[1], frame, frameVars, ctx)
-		iteElse := ExprToZ3(expr.Args[2], frame, frameVars, ctx)
+		iteIf := ExprToZ3(expr.Args[0], frame, frameVars, ctx, solver)
+		iteThen := ExprToZ3(expr.Args[1], frame, frameVars, ctx, solver)
+		iteElse := ExprToZ3(expr.Args[2], frame, frameVars, ctx, solver)
 
-		trueBv := ctx.MkBV(1, 1)
-		falseBv := ctx.MkBV(0, 1)
+		return ResolveConditionalITE(ctx, solver, expr, iteIf, iteThen, iteElse, frame)
 
-		z3If := ctx.MkEq(iteIf, trueBv)
-		z3False := ctx.MkEq(iteIf, falseBv)
-
-		z3ThenHandle := ctx.MkImplies(z3If, iteThen)
-		z3FalseHandle := ctx.MkImplies(z3False, iteElse)
-
-		_ = z3ThenHandle
-		_ = z3FalseHandle
+	case "Equality":
+		panic("implement next for assertions!")
 
 	case "UnaryOp":
 
@@ -184,7 +208,7 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 			switch expr.Op {
 
 			case "LogicalNot":
-				left := ExprToZ3(expr.Left, frame, frameVars, ctx)
+				left := ExprToZ3(expr.Left, frame, frameVars, ctx, solver)
 				return ctx.MkBVNot(left)
 
 			}
@@ -194,5 +218,25 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 	}
 
 	return nil
+
+}
+
+func ResolveConditionalITE(ctx *z3.Context, solver *z3.Solver, condExpr *nodes.ExprIR, ifExpr *z3.Expr, thenExpr *z3.Expr, elseExpr *z3.Expr, frame int) *z3.Expr {
+
+	tempName := fmt.Sprintf("ite_tmp_%p_f%d", condExpr, frame)
+	tempVar := ctx.MkConst(ctx.MkStringSymbol(tempName), ctx.MkBvSort(uint(condExpr.Width)))
+
+	trueBv := ctx.MkBV(1, 1)
+
+	z3If := ctx.MkEq(ifExpr, trueBv)
+	z3False := ctx.MkNot(z3If)
+
+	thenEq := ctx.MkEq(tempVar, thenExpr)
+	elseEq := ctx.MkEq(tempVar, elseExpr)
+
+	solver.Assert(ctx.MkImplies(z3If, thenEq))
+	solver.Assert(ctx.MkImplies(z3False, elseEq))
+
+	return tempVar
 
 }
