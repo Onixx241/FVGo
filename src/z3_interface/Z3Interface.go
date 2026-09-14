@@ -58,27 +58,23 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 	}
 
-	// for _, assertion := range graph.AssertionIRs {
+	for _, assertion := range graph.AssertionIRs {
 
-	// 	var failureConditions []*z3.Expr
+		var failureConditions []*z3.Expr
 
-	// 	for i := 0; i < k; i++ {
+		for i := 0; i < k; i++ {
 
-	// 		condition := AssertionToZ3(assertion, i, frameDict, ctx, solver)
+			condition := AssertionToZ3(assertion, i, frameDict, ctx, solver)
 
-	// 		trueBool := ctx.MkBV(1, 1)
+			solver.Assert(condition)
 
-	// 		implication := ctx.MkImplies(condition, trueBool)
+		}
 
-	// 		solver.Assert(implication)
+		if len(failureConditions) > 0 {
 
-	// 	}
+		}
 
-	// 	if len(failureConditions) > 0 {
-
-	// 	}
-
-	// }
+	}
 
 	if solver.Check() == z3.Satisfiable {
 
@@ -133,14 +129,29 @@ func CreateFrameVars(ctx *z3.Context, graph *nodes.DesignGraph, k int) map[strin
 
 func AssertionToZ3(assertion *nodes.AssertionIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
 
+	//if non overlapped implication use min max
 	if assertion == nil || assertion.Implication == "" {
 		return nil
 	}
 
-	// antecedent := ExprToZ3(assertion.Antecedent.Left, frame, frameVars, ctx, solver)
-	// consequent := ExprToZ3(assertion.Consequent.Left)
+	trueBv := ctx.MkBV(1, 32)
 
-	return nil
+	antecedent := ExprToZ3(assertion.Antecedent, frame, frameVars, ctx, solver)
+	//bv 1 and bv 32 are incompatible, possible edge case(consequent equality block)
+	consequent := ExprToZ3(assertion.Consequent, frame, frameVars, ctx, solver)
+	clockSignal := frameVars[assertion.ClockSignal][frame]
+
+	antecedentAndClockSig := ctx.MkAnd(clockSignal, antecedent) //will return an error
+	antecedentTrue := ctx.MkEq(antecedentAndClockSig, trueBv)
+
+	implication := ctx.MkImplies(antecedentTrue, consequent) //will return an error
+
+	assertionNot := ctx.MkNot(implication)
+
+	//go back to exprtoz3 later and null check value before going to next left
+
+	return assertionNot
+
 }
 
 func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
@@ -181,11 +192,23 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 				implication := ctx.MkBVAnd(left, right)
 
-				fmt.Print(left.String() + "\n")
-				fmt.Print(right.String() + "\n")
-				fmt.Print(implication.String() + "\n")
+				// fmt.Print(left.String() + "\n")
+				// fmt.Print(right.String() + "\n")
+				// fmt.Print(implication.String() + "\n")
 
 				return implication
+
+			}
+
+			if expr.Op == "Equality" {
+
+				left := ExprToZ3(expr.Left.Left, frame, frameVars, ctx, solver)
+				right := ExprToZ3(expr.Right, frame, frameVars, ctx, solver)
+
+				equality := ctx.MkEq(left, right) //this is giving the sorts
+				// of bitvec 1 and 32 are incompatible
+
+				return equality
 
 			}
 
@@ -197,9 +220,6 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 		iteElse := ExprToZ3(expr.Args[2], frame, frameVars, ctx, solver)
 
 		return ResolveConditionalITE(ctx, solver, expr, iteIf, iteThen, iteElse, frame)
-
-	case "Equality":
-		panic("implement next for assertions!")
 
 	case "UnaryOp":
 
