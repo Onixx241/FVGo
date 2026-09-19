@@ -9,6 +9,10 @@ import (
 	z3 "github.com/Z3Prover/z3/src/api/go"
 )
 
+const (
+	EmptyString = ""
+)
+
 func StateMachine(k int, graph nodes.DesignGraph) {
 
 	ctx := z3.NewContext()
@@ -66,11 +70,17 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 			condition := AssertionToZ3(assertion, i, frameDict, ctx, solver)
 
-			solver.Assert(condition)
+			if condition != nil {
+				failureConditions = append(failureConditions, condition)
+			}
 
 		}
 
 		if len(failureConditions) > 0 {
+
+			orAsserts := ctx.MkOr(failureConditions...)
+
+			solver.Assert(orAsserts)
 
 		}
 
@@ -134,21 +144,20 @@ func AssertionToZ3(assertion *nodes.AssertionIR, frame int, frameVars map[string
 		return nil
 	}
 
-	trueBv := ctx.MkBV(1, 32)
+	trueBv := ctx.MkBV(1, 1)
 
 	antecedent := ExprToZ3(assertion.Antecedent, frame, frameVars, ctx, solver)
-	//bv 1 and bv 32 are incompatible, possible edge case(consequent equality block)
+
 	consequent := ExprToZ3(assertion.Consequent, frame, frameVars, ctx, solver)
 	clockSignal := frameVars[assertion.ClockSignal][frame]
 
-	antecedentAndClockSig := ctx.MkAnd(clockSignal, antecedent) //will return an error
+	antecedentAndClockSig := ctx.MkBVAnd(clockSignal, antecedent)
 	antecedentTrue := ctx.MkEq(antecedentAndClockSig, trueBv)
 
-	implication := ctx.MkImplies(antecedentTrue, consequent) //will return an error
+	implication := ctx.MkImplies(antecedentTrue, consequent)
 
 	assertionNot := ctx.MkNot(implication)
-
-	//go back to exprtoz3 later and null check value before going to next left
+	fmt.Print(assertionNot.String())
 
 	return assertionNot
 
@@ -156,7 +165,7 @@ func AssertionToZ3(assertion *nodes.AssertionIR, frame int, frameVars map[string
 
 func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
 
-	if expr == nil || expr.Kind == "" {
+	if expr == nil || expr.Kind == EmptyString {
 		return nil
 	}
 
@@ -179,11 +188,25 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 		return ctx.MkBV(val, uint(expr.Width))
 
 	case "Conversion":
-		val := bmc.ParseLiteralValue(expr.Left.Value)
-		return ctx.MkBV(val, uint(expr.Width))
+
+		nestedExpr := ExprToZ3(expr.Left, frame, frameVars, ctx, solver)
+
+		if nestedExpr != nil {
+
+			diff := uint(expr.Width) - uint(expr.Left.Width)
+
+			if diff > 0 {
+				return ctx.MkZeroExt(diff, nestedExpr)
+			}
+
+			return nestedExpr
+
+		}
+
+		return nil
 
 	case "BinaryOp":
-		if expr.Op != "" {
+		if expr.Op != EmptyString {
 
 			if expr.Op == "LogicalAnd" {
 
@@ -202,7 +225,7 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 			if expr.Op == "Equality" {
 
-				left := ExprToZ3(expr.Left.Left, frame, frameVars, ctx, solver)
+				left := ExprToZ3(expr.Left, frame, frameVars, ctx, solver) //parsing empty val- ""
 				right := ExprToZ3(expr.Right, frame, frameVars, ctx, solver)
 
 				equality := ctx.MkEq(left, right) //this is giving the sorts
@@ -223,7 +246,7 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 	case "UnaryOp":
 
-		if expr.Op != "" {
+		if expr.Op != EmptyString {
 
 			switch expr.Op {
 
