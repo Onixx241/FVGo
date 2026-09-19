@@ -2,6 +2,7 @@ package z3_interface
 
 import (
 	"fmt"
+	"log"
 	"main/bmc"
 	"main/bmc/nodes"
 	"strconv"
@@ -68,7 +69,7 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 		for i := 0; i < k; i++ {
 
-			condition := AssertionToZ3(assertion, i, frameDict, ctx, solver)
+			condition := AssertionToZ3(assertion, i, k, frameDict, ctx, solver)
 
 			if condition != nil {
 				failureConditions = append(failureConditions, condition)
@@ -137,7 +138,7 @@ func CreateFrameVars(ctx *z3.Context, graph *nodes.DesignGraph, k int) map[strin
 	return exprMap
 }
 
-func AssertionToZ3(assertion *nodes.AssertionIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
+func AssertionToZ3(assertion *nodes.AssertionIR, frame int, limit int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
 
 	//if non overlapped implication use min max
 	if assertion == nil || assertion.Implication == "" {
@@ -146,9 +147,28 @@ func AssertionToZ3(assertion *nodes.AssertionIR, frame int, frameVars map[string
 
 	trueBv := ctx.MkBV(1, 1)
 
+	delay := 0
+
+	if assertion.DelayMax != 0 || assertion.DelayMin != 0 {
+
+		if frame+assertion.DelayMax > limit {
+
+			boundViolatedAssertionMessage := RecurseLeftsForSymbol(assertion.Antecedent) + "->" + RecurseLeftsForSymbol(assertion.Consequent) + "\n\nDelay: " + strconv.FormatInt(int64(assertion.DelayMax), 10) + "\n\n" + "K-Bound Maximum: " + strconv.FormatInt(int64(limit), 10)
+
+			log.Fatal("\n\nOne of your temporal assertions has a clock delay bigger than the k bound!\n\n", boundViolatedAssertionMessage+"\n\n")
+
+		} else {
+
+			delay = assertion.DelayMax
+
+		}
+
+	}
+
 	antecedent := ExprToZ3(assertion.Antecedent, frame, frameVars, ctx, solver)
 
-	consequent := ExprToZ3(assertion.Consequent, frame, frameVars, ctx, solver)
+	consequent := ExprToZ3(assertion.Consequent, frame+delay, frameVars, ctx, solver)
+
 	clockSignal := frameVars[assertion.ClockSignal][frame]
 
 	antecedentAndClockSig := ctx.MkBVAnd(clockSignal, antecedent)
@@ -281,5 +301,25 @@ func ResolveConditionalITE(ctx *z3.Context, solver *z3.Solver, condExpr *nodes.E
 	solver.Assert(ctx.MkImplies(z3False, elseEq))
 
 	return tempVar
+
+}
+
+func RecurseLeftsForSymbol(expr *nodes.ExprIR) string {
+
+	if expr.Symbol != EmptyString {
+
+		return expr.Symbol
+
+	} else {
+
+		if expr.Left != nil {
+
+			return RecurseLeftsForSymbol(expr.Left)
+
+		}
+
+	}
+
+	return EmptyString
 
 }
