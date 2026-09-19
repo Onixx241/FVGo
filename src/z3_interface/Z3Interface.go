@@ -93,11 +93,12 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 			fmt.Print(solver.Model().String())
 		}
 
-		print("Satisfiable!")
+		print("Assertion Violation Found!")
+		//try to find waveform library to generate waveform files
 	}
 	if solver.Check() == z3.Unsatisfiable {
 
-		print("Unsatisfiable!")
+		print("No Assertion Violations Found!")
 
 	}
 
@@ -153,9 +154,11 @@ func AssertionToZ3(assertion *nodes.AssertionIR, frame int, limit int, frameVars
 
 		if frame+assertion.DelayMax > limit {
 
-			boundViolatedAssertionMessage := RecurseLeftsForSymbol(assertion.Antecedent) + "->" + RecurseLeftsForSymbol(assertion.Consequent) + "\n\nDelay: " + strconv.FormatInt(int64(assertion.DelayMax), 10) + "\n\n" + "K-Bound Maximum: " + strconv.FormatInt(int64(limit), 10)
+			boundViolatedAssertionMessage := RecurseLeftsForSymbol(assertion.Antecedent) + "->" + RecurseLeftsForSymbol(assertion.Consequent) + "\n\nCurrent Frame: " + strconv.FormatInt(int64(frame), 10) + "\n\nDelay: " + strconv.FormatInt(int64(assertion.DelayMax), 10) + "\n\n" + "K-Bound Maximum: " + strconv.FormatInt(int64(limit), 10)
 
-			log.Fatal("\n\nOne of your temporal assertions has a clock delay bigger than the k bound!\n\n", boundViolatedAssertionMessage+"\n\n")
+			log.Print("\n\nOne of your temporal assertions has a clock delay bigger than the k bound!\n\n", boundViolatedAssertionMessage+"\n\n")
+
+			return nil
 
 		} else {
 
