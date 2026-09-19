@@ -34,6 +34,10 @@ func ExtractAssignmentFromListItem(listitem *nodes.ListNode) *nodes.ExpressionNo
 
 func ParseLiteralValue(unparsed string) int {
 
+	if unparsed == "logic" {
+		return 1
+	}
+
 	split := strings.Split(unparsed, "'")
 
 	if len(split) == 1 {

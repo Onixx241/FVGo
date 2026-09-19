@@ -10,21 +10,36 @@ import (
 	"os"
 )
 
+const (
+	defaultKBound = 10
+)
+
 // move z3 import to Z3Interface.go
 func main() {
 
 	PrintBanner()
 
 	var filevar string
+	var kBound *int
 
 	debug := true
 
 	if debug {
+
 		filevar = "test.sv"
+
+		debugBound := 10
+
+		kBound = &debugBound
+
 	} else {
+
 		flag.StringVar(&filevar, "file", "", "")
 
+		kBound = flag.Int("depth", defaultKBound, "depth for K unrolling")
+
 		flag.Parse()
+
 	}
 
 	if filevar != "" || debug {
@@ -47,8 +62,7 @@ func main() {
 
 				bmc.DumpAssertions(graph)
 
-				z3_interface.Test()
-				//returning exit staus 0xc0000135
+				z3_interface.StateMachine(*kBound, graph)
 
 			}
 
