@@ -31,6 +31,7 @@ I was experimenting with Formal Verification for my Arty A7 RTL designs and foun
 ## Goals
 
 - Full IEEE 1800-2023 compliance for complete SystemVerilog support
+- Linux and Mac OS Builds
 - Utilization of Go Concurrency for better performance as `FVGo` grows
 - Multiple DUT support for verifying many designs in one Go
 - Full GUI in the future, maybe
