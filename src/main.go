@@ -58,10 +58,6 @@ func main() {
 
 				_ = dict
 
-				bmc.DumpFlattened(graph)
-
-				bmc.DumpAssertions(graph)
-
 				z3_interface.StateMachine(*kBound, graph)
 
 			}

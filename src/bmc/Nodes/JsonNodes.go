@@ -48,19 +48,13 @@ type BodyNode struct {
 	Body          *BodyNode         `json:"body,omitempty"`
 	PropertySpec  *PropertySpecNode `json:"propertySpec,omitempty"`
 	AssertionKind string            `json:"assertionKind,omitempty"`
+	Clocking      *TimingNode       `json:"clocking,omitempty"`
 }
 
 type PropertySpecNode struct {
-	Kind       string            `json:"kind"`
-	Clocking   *TimingNode       `json:"clocking,omitempty"`
-	Expression *PropertyExprNode `json:"expr,omitempty"`
-}
-
-type PropertyExprNode struct {
-	Kind  string            `json:"kind"`
-	Op    string            `json:"op,omitempty"`
-	Left  *PropertyTermNode `json:"left,omitempty"`
-	Right *PropertyTermNode `json:"right,omitempty"`
+	Kind     string          `json:"kind"`
+	Clocking *TimingNode     `json:"clocking,omitempty"`
+	Expr     *ExpressionNode `json:"expr,omitempty"`
 }
 
 type PropertyTermNode struct {

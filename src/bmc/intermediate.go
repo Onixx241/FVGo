@@ -5,6 +5,7 @@ import (
 )
 
 func AstInstance(ast nodes.SlangAST) (dict map[string]*nodes.IRNode, design nodes.DesignGraph) {
+
 	componentDict := make(map[string]*nodes.IRNode)
 	var graph nodes.DesignGraph
 
@@ -59,12 +60,28 @@ func AstInstance(ast nodes.SlangAST) (dict map[string]*nodes.IRNode, design node
 
 			case "ProceduralBlock":
 
-				if component.Body != nil && component.Body.Kind == "ConcurrentAssertion" && component.Body.PropertySpec != nil {
+				switch component.Body.Kind {
 
-					a := LowerConcurrentAssertion(component.Body, componentDict)
+				case "ConcurrentAssertion":
 
-					if a != nil {
-						graph.AssertionIRs = append(graph.AssertionIRs, a)
+					if component.Body != nil && component.Body.AssertionKind == "Assert" && component.Body.PropertySpec != nil {
+
+						a := LowerConcurrentAssertion(component.Body, componentDict)
+
+						if a != nil {
+							graph.AssertionIRs = append(graph.AssertionIRs, a)
+						}
+
+					}
+
+					if component.Body != nil && component.Body.AssertionKind == "Assume" && component.Body.PropertySpec != nil {
+
+						assumption := LowerAssumeProperty(component.Body, dict)
+
+						if assumption != nil {
+							graph.AssumptionIRs = append(graph.AssumptionIRs, assumption)
+						}
+
 					}
 
 				}
@@ -87,6 +104,10 @@ func AstInstance(ast nodes.SlangAST) (dict map[string]*nodes.IRNode, design node
 				order := 0
 				WalkBodyLower(component.Body, componentDict, &graph, proc, nil, &order)
 				graph.ProcessIRs = append(graph.ProcessIRs, proc)
+
+			case "Property":
+				property := nodes.PropertyIR{Name: component.Name, Kind: component.Kind, Addr: int(component.Addr)}
+				graph.PropertyIRs = append(graph.PropertyIRs, &property)
 
 			}
 

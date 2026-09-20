@@ -67,18 +67,21 @@ type TruthNode struct {
 }
 
 type ExpressionNode struct { //acts like a general node sometimes maybe make a new general one?
-	Kind            string             `json:"kind"`
-	Type            string             `json:"type"`
-	Symbol          string             `json:"symbol,omitempty"`
-	Value           *string            `json:"value,omitempty"`
-	Constant        *string            `json:"constant,omitempty"`
-	Operand         *OperandNode       `json:"operand,omitempty"`
-	OperandExpr     *ExpressionNode    `json:"operandExpr,omitempty"`
-	Op              string             `json:"op,omitempty"`
-	Left            *LeftNode          `json:"left,omitempty"`
-	Right           *RightNode         `json:"right,omitempty"`
-	Conditions      *[]ConditionalNode `json:"conditions,omitempty"`
-	NonBlockingBool *bool              `json:"isNonBlocking,omitempty"`
+	Kind                string             `json:"kind"`
+	Type                string             `json:"type"`
+	Symbol              string             `json:"symbol,omitempty"`
+	IsRecursiveProperty bool               `json:"isRecursiveProperty,omitempty"`
+	Value               *string            `json:"value,omitempty"`
+	Constant            *string            `json:"constant,omitempty"`
+	Operand             *OperandNode       `json:"operand,omitempty"`
+	OperandExpr         *ExpressionNode    `json:"operandExpr,omitempty"`
+	Op                  string             `json:"op,omitempty"`
+	Left                *LeftNode          `json:"left,omitempty"`
+	Right               *RightNode         `json:"right,omitempty"`
+	Conditions          *[]ConditionalNode `json:"conditions,omitempty"`
+	NonBlockingBool     *bool              `json:"isNonBlocking,omitempty"`
+	Body                *BodyNode          `json:"body,omitempty"`
+	Expression          *ExpressionNode    `json:"expr,omitempty"`
 }
 
 type LeftNode struct {
@@ -92,19 +95,22 @@ type LeftNode struct {
 	Conditions *[]ConditionalNode `json:"conditions,omitempty"`
 	Value      *string            `json:"value,omitempty"`
 	Constant   *string            `json:"constant,omitempty"`
+	Expr       *ExpressionNode    `json:"expr,omitempty"`
 }
 
 type RightNode struct {
-	Kind       string             `json:"kind"`
-	Type       string             `json:"type"`
-	Symbol     string             `json:"symbol,omitempty"`
-	Operand    OperandNode        `json:"operand,omitempty"`
-	Constant   *string            `json:"constant,omitempty"`
-	Left       *LeftNode          `json:"left,omitempty"`
-	Right      *RightNode         `json:"right,omitempty"`
-	Op         string             `json:"op,omitempty"`
-	Conditions *[]ConditionalNode `json:"conditions,omitempty"`
-	Value      *string            `json:"value,omitempty"`
+	Kind       string                `json:"kind"`
+	Type       string                `json:"type"`
+	Symbol     string                `json:"symbol,omitempty"`
+	Operand    OperandNode           `json:"operand,omitempty"`
+	Constant   *string               `json:"constant,omitempty"`
+	Left       *LeftNode             `json:"left,omitempty"`
+	Right      *RightNode            `json:"right,omitempty"`
+	Op         string                `json:"op,omitempty"`
+	Conditions *[]ConditionalNode    `json:"conditions,omitempty"`
+	Value      *string               `json:"value,omitempty"`
+	Elements   []PropertyElementNode `json:"elements,omitempty"`
+	Expr       *ExpressionNode       `json:"expr,omitempty"`
 }
 
 type ExpressionStatement struct {
@@ -183,6 +189,20 @@ type AssertionIR struct {
 	Consequent  *ExprIR
 }
 
+type AssumptionIR struct {
+	Kind             string
+	ClockEdge        string
+	ClockSignal      string
+	AssumptionExpr   *ExprIR
+	ConstraintSymbol string
+}
+
+type PropertyIR struct {
+	Name string
+	Kind string
+	Addr int
+}
+
 type DesignGraph struct {
 	Inputs             []*IRNode
 	Outputs            []*IRNode
@@ -194,4 +214,6 @@ type DesignGraph struct {
 	Expressions        []*ExpressionNode
 	ProcessIRs         []*ProcessIR
 	AssertionIRs       []*AssertionIR
+	AssumptionIRs      []*AssumptionIR
+	PropertyIRs        []*PropertyIR
 }

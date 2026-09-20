@@ -63,6 +63,10 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 	}
 
+	for _, assumption := range graph.AssumptionIRs {
+		ConstrainAssumptions(assumption, k, frameDict, ctx, solver)
+	}
+
 	for _, assertion := range graph.AssertionIRs {
 
 		var failureConditions []*z3.Expr
@@ -137,6 +141,40 @@ func CreateFrameVars(ctx *z3.Context, graph *nodes.DesignGraph, k int) map[strin
 	}
 
 	return exprMap
+}
+
+func ConstrainAssumptions(assumption *nodes.AssumptionIR, limit int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) {
+
+	sliceItem, exists := frameVars[assumption.ConstraintSymbol]
+
+	if !exists {
+		return
+	}
+
+	var assumpValue *z3.Expr
+
+	//change to switch later
+	if assumption.AssumptionExpr.Op == "LogicalNot" {
+
+		assumpValue = ctx.MkBVNot(sliceItem[0])
+
+	} else if assumption.AssumptionExpr.Op == "Equality" {
+
+		assumpValue = ctx.MkBV(bmc.ParseLiteralValue(assumption.AssumptionExpr.Value), uint(assumption.AssumptionExpr.Width))
+
+	} else {
+
+		return //add others later
+
+	}
+
+	for i := 0; i < limit; i++ {
+
+		targ := sliceItem[i]
+		solver.Assert(ctx.MkEq(targ, assumpValue))
+
+	}
+
 }
 
 func AssertionToZ3(assertion *nodes.AssertionIR, frame int, limit int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {

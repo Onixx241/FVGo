@@ -282,6 +282,33 @@ func LowerExpr(node nodes.ExpressionNode, dict map[string]*nodes.IRNode) *nodes.
 
 		return c
 
+	case "Simple": //assumption property - continue here
+
+		assumption := &nodes.ExprIR{Kind: "AssumptionProperty"}
+
+		innerExpr := LowerExpr(*node.Expression, dict) //continue here
+
+		if innerExpr.Op == "Equality" {
+
+			assumption.Op = innerExpr.Op
+			assumption.Value = innerExpr.Right.Value
+			assumption.Width = innerExpr.Right.Width
+			constraint := &nodes.ExprIR{Width: innerExpr.Left.Width, Symbol: innerExpr.Left.Symbol}
+			assumption.Args = append(assumption.Args, constraint)
+
+		} else {
+
+			assumption.Type = innerExpr.Type
+			assumption.Op = innerExpr.Op
+			assumption.Width = innerExpr.Width
+
+			constraint := &nodes.ExprIR{Width: innerExpr.Left.Width, Symbol: innerExpr.Left.Symbol}
+			assumption.Args = append(assumption.Args, constraint)
+
+		}
+
+		return assumption
+
 	}
 
 	if node.Operand != nil {
@@ -418,11 +445,11 @@ func LowerOperand(op *nodes.OperandNode, dict map[string]*nodes.IRNode) *nodes.E
 
 func LowerConcurrentAssertion(body *nodes.BodyNode, dict map[string]*nodes.IRNode) *nodes.AssertionIR {
 
-	if body == nil || body.PropertySpec == nil || body.PropertySpec.Expression == nil {
+	if body == nil || body.PropertySpec == nil || body.PropertySpec.Expr == nil {
 		return nil
 	}
 
-	property := body.PropertySpec.Expression
+	property := body.PropertySpec.Expr
 
 	if property.Kind != "Binary" { //fixed crash
 		return nil
@@ -467,5 +494,24 @@ func LowerConcurrentAssertion(body *nodes.BodyNode, dict map[string]*nodes.IRNod
 	}
 
 	return out
+
+}
+
+func LowerAssumeProperty(body *nodes.BodyNode, dict map[string]*nodes.IRNode) *nodes.AssumptionIR {
+
+	if body == nil || body.PropertySpec == nil {
+		return nil
+	}
+
+	newAssumption := nodes.AssumptionIR{Kind: body.PropertySpec.Kind}
+	newAssumption.ClockEdge = body.PropertySpec.Expr.Body.Clocking.Edge
+	newAssumption.ClockSignal = ParseSymbol(body.PropertySpec.Expr.Body.Clocking.Expression.Symbol)
+
+	expr := LowerExpr(*body.PropertySpec.Expr.Body.Expression, dict)
+
+	newAssumption.AssumptionExpr = expr
+	newAssumption.ConstraintSymbol = expr.Args[0].Symbol
+
+	return &newAssumption
 
 }
