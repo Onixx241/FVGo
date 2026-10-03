@@ -190,11 +190,10 @@ type AssertionIR struct {
 }
 
 type AssumptionIR struct {
-	Kind             string
-	ClockEdge        string
-	ClockSignal      string
-	AssumptionExpr   *ExprIR
-	ConstraintSymbol string
+	Kind           string
+	ClockEdge      string
+	ClockSignal    string
+	AssumptionExpr *ExprIR
 }
 
 type PropertyIR struct {

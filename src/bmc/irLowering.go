@@ -4,6 +4,10 @@ import (
 	"main/bmc/nodes"
 )
 
+const (
+	EmptyString = ""
+)
+
 func LowerAssignment(node nodes.ExpressionNode, dict map[string]*nodes.IRNode, proc *nodes.ProcessIR, guard *nodes.ExprIR, order *int) {
 
 	if node.Left == nil || node.Right == nil {
@@ -284,30 +288,11 @@ func LowerExpr(node nodes.ExpressionNode, dict map[string]*nodes.IRNode) *nodes.
 
 	case "Simple": //assumption property - continue here
 
-		assumption := &nodes.ExprIR{Kind: "AssumptionProperty"}
-
-		innerExpr := LowerExpr(*node.Expression, dict) //continue here
-
-		if innerExpr.Op == "Equality" {
-
-			assumption.Op = innerExpr.Op
-			assumption.Value = innerExpr.Right.Value
-			assumption.Width = innerExpr.Right.Width
-			constraint := &nodes.ExprIR{Width: innerExpr.Left.Width, Symbol: innerExpr.Left.Symbol}
-			assumption.Args = append(assumption.Args, constraint)
-
-		} else {
-
-			assumption.Type = innerExpr.Type
-			assumption.Op = innerExpr.Op
-			assumption.Width = innerExpr.Width
-
-			constraint := &nodes.ExprIR{Width: innerExpr.Left.Width, Symbol: innerExpr.Left.Symbol}
-			assumption.Args = append(assumption.Args, constraint)
-
+		if node.Expression != nil {
+			return LowerExpr(*node.Expression, dict)
 		}
 
-		return assumption
+		return nil
 
 	}
 
@@ -504,14 +489,37 @@ func LowerAssumeProperty(body *nodes.BodyNode, dict map[string]*nodes.IRNode) *n
 	}
 
 	newAssumption := nodes.AssumptionIR{Kind: body.PropertySpec.Kind}
-	newAssumption.ClockEdge = body.PropertySpec.Expr.Body.Clocking.Edge
-	newAssumption.ClockSignal = ParseSymbol(body.PropertySpec.Expr.Body.Clocking.Expression.Symbol)
 
-	expr := LowerExpr(*body.PropertySpec.Expr.Body.Expression, dict)
+	if body.PropertySpec.Expr != nil && body.PropertySpec.Expr.Body != nil {
 
-	newAssumption.AssumptionExpr = expr
-	newAssumption.ConstraintSymbol = expr.Args[0].Symbol
+		newAssumption.ClockEdge = body.PropertySpec.Expr.Body.Clocking.Edge
+
+		newAssumption.ClockSignal = ParseSymbol(body.PropertySpec.Expr.Body.Clocking.Expression.Symbol)
+
+		newAssumption.AssumptionExpr = LowerExpr(*body.PropertySpec.Expr.Body.Expression, dict)
+
+	}
 
 	return &newAssumption
+
+}
+
+func RecurseLeftsForSymbol(expr *nodes.ExprIR) string {
+
+	if expr.Symbol != EmptyString {
+
+		return expr.Symbol
+
+	} else {
+
+		if expr.Left != nil {
+
+			return RecurseLeftsForSymbol(expr.Left)
+
+		}
+
+	}
+
+	return EmptyString
 
 }

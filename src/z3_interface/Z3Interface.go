@@ -145,33 +145,22 @@ func CreateFrameVars(ctx *z3.Context, graph *nodes.DesignGraph, k int) map[strin
 
 func ConstrainAssumptions(assumption *nodes.AssumptionIR, limit int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) {
 
-	sliceItem, exists := frameVars[assumption.ConstraintSymbol]
-
-	if !exists {
+	if assumption == nil || assumption.AssumptionExpr == nil {
 		return
 	}
 
-	var assumpValue *z3.Expr
-
-	//change to switch later
-	if assumption.AssumptionExpr.Op == "LogicalNot" {
-
-		assumpValue = ctx.MkBVNot(sliceItem[0])
-
-	} else if assumption.AssumptionExpr.Op == "Equality" {
-
-		assumpValue = ctx.MkBV(bmc.ParseLiteralValue(assumption.AssumptionExpr.Value), uint(assumption.AssumptionExpr.Width))
-
-	} else {
-
-		return //add others later
-
-	}
+	trueBv := ctx.MkBV(1, 1)
+	trueBool := ctx.MkEq(trueBv, trueBv)
 
 	for i := 0; i < limit; i++ {
 
-		targ := sliceItem[i]
-		solver.Assert(ctx.MkEq(targ, assumpValue))
+		assumptionExpr := ExprToZ3(assumption.AssumptionExpr, i, frameVars, ctx, solver)
+
+		fmt.Printf("assumptionExpr: %v\n", assumptionExpr)
+
+		if assumptionExpr != nil {
+			solver.Assert(ctx.MkEq(assumptionExpr, trueBool))
+		}
 
 	}
 

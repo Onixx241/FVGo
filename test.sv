@@ -19,6 +19,7 @@ begin
     if(i_rst)
     begin
         dummy_var <= 0;
+        i_flag <= 0;
     end
     else
     begin
@@ -50,10 +51,15 @@ assert property (@(posedge clk) !i_pulse |=> ##3 i_flag == 1);
 
 
 property test_rst_constraint;
-    @(posedge clk) !i_rst;
+    @(posedge clk) i_rst == 1; //implement this next, need equality original not irst was working
+endproperty
+
+property test_rst_constraint2;
+    @(posedge clk) i_rst == i_flag; //implement this next, need equality original not irst was working
 endproperty
 
 
 assume property (test_rst_constraint);
+assume property (test_rst_constraint2);
 
 endmodule

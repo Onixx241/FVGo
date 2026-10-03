@@ -14,7 +14,6 @@ const (
 	defaultKBound = 10
 )
 
-// move z3 import to Z3Interface.go
 func main() {
 
 	PrintBanner()
