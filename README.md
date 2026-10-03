@@ -27,6 +27,7 @@ I was experimenting with Formal Verification for my Arty A7 RTL designs and foun
 - **Assume:** Simple Assume properties
 - **Cover:** No Cover properties yet
 - **Language Support:** Limited support for more advanced SystemVerilog features
+- **Waveform Exporting:** Coming soon !
 
 ## Goals
 
