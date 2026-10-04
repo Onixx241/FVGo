@@ -150,16 +150,21 @@ func ConstrainAssumptions(assumption *nodes.AssumptionIR, limit int, frameVars m
 	}
 
 	trueBv := ctx.MkBV(1, 1)
-	trueBool := ctx.MkEq(trueBv, trueBv)
+	//trueBool := ctx.MkEq(trueBv, trueBv)
 
 	for i := 0; i < limit; i++ {
 
 		assumptionExpr := ExprToZ3(assumption.AssumptionExpr, i, frameVars, ctx, solver)
 
+		assumptionBool := ctx.MkEq(assumptionExpr, trueBv)
+
 		fmt.Printf("assumptionExpr: %v\n", assumptionExpr)
 
 		if assumptionExpr != nil {
-			solver.Assert(ctx.MkEq(assumptionExpr, trueBool))
+			//eq assumptionexpr to truebv so its also a bool instead of a bv expr
+			//this issue might come back up, try to see which combos make incompatible errors come up
+			//write algo to pick and choose when to use true bv and true bool
+			solver.Assert(assumptionBool) // bitvec1 and bool are incompat - mk eq, assumptionexpr truebool
 		}
 
 	}
@@ -264,10 +269,6 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 				right := ExprToZ3(expr.Right, frame, frameVars, ctx, solver)
 
 				implication := ctx.MkBVAnd(left, right)
-
-				// fmt.Print(left.String() + "\n")
-				// fmt.Print(right.String() + "\n")
-				// fmt.Print(implication.String() + "\n")
 
 				return implication
 
