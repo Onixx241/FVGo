@@ -22,7 +22,9 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 	frameDict := CreateFrameVars(ctx, &graph, k)
 
-	for i := 0; i < k; i++ {
+	limit := k
+
+	for i := 0; i < limit; i++ {
 
 		for _, process := range graph.ProcessIRs {
 
@@ -30,8 +32,8 @@ func StateMachine(k int, graph nodes.DesignGraph) {
 
 				currentState := frameDict[assign.Target.Name][i]
 				target := frameDict[assign.Target.Name][i+1]
-				val := ExprToZ3(assign.Value, i, frameDict, ctx, solver)
-				guard := ExprToZ3(assign.Guard, i, frameDict, ctx, solver)
+				val := ExprToZ3(assign.Value, i, limit, frameDict, ctx, solver)
+				guard := ExprToZ3(assign.Guard, i, limit, frameDict, ctx, solver)
 
 				eq := ctx.MkEq(target, val) //for my implication -> guards anded and value equals target
 				falseEq := ctx.MkEq(target, currentState)
@@ -150,13 +152,23 @@ func ConstrainAssumptions(assumption *nodes.AssumptionIR, limit int, frameVars m
 	}
 
 	trueBv := ctx.MkBV(1, 1)
-	//trueBool := ctx.MkEq(trueBv, trueBv)
+	trueBool := ctx.MkEq(trueBv, trueBv)
 
 	for i := 0; i < limit; i++ {
 
-		assumptionExpr := ExprToZ3(assumption.AssumptionExpr, i, frameVars, ctx, solver)
+		assumptionExpr := ExprToZ3(assumption.AssumptionExpr, i, limit, frameVars, ctx, solver)
+		assumptionBool := &z3.Expr{}
 
-		assumptionBool := ctx.MkEq(assumptionExpr, trueBv)
+		if assumption.AssumptionExpr.Op == "NonOverlappedImplication" && assumption.AssumptionExpr.Kind == "Binary" {
+
+			assumptionBool = ctx.MkEq(assumptionExpr, trueBool) //returning incompat sorts,
+			// 10-6: !i_rst assumption is casuing bitvec1 and bool incompat sorts
+
+		} else { //change else to if regular or overlapped or other impl
+
+			assumptionBool = ctx.MkEq(assumptionExpr, trueBv)
+
+		} //next time look at overlapped implication
 
 		fmt.Printf("assumptionExpr: %v\n", assumptionExpr)
 
@@ -200,9 +212,9 @@ func AssertionToZ3(assertion *nodes.AssertionIR, frame int, limit int, frameVars
 
 	}
 
-	antecedent := ExprToZ3(assertion.Antecedent, frame, frameVars, ctx, solver)
+	antecedent := ExprToZ3(assertion.Antecedent, frame, limit, frameVars, ctx, solver)
 
-	consequent := ExprToZ3(assertion.Consequent, frame+delay, frameVars, ctx, solver)
+	consequent := ExprToZ3(assertion.Consequent, frame+delay, limit, frameVars, ctx, solver)
 
 	clockSignal := frameVars[assertion.ClockSignal][frame]
 
@@ -218,7 +230,7 @@ func AssertionToZ3(assertion *nodes.AssertionIR, frame int, limit int, frameVars
 
 }
 
-func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
+func ExprToZ3(expr *nodes.ExprIR, frame int, limit int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
 
 	if expr == nil || expr.Kind == EmptyString {
 		return nil
@@ -244,7 +256,7 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 	case "Conversion":
 
-		nestedExpr := ExprToZ3(expr.Left, frame, frameVars, ctx, solver)
+		nestedExpr := ExprToZ3(expr.Left, frame, limit, frameVars, ctx, solver)
 
 		if nestedExpr != nil {
 
@@ -265,8 +277,8 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 			if expr.Op == "LogicalAnd" {
 
-				left := ExprToZ3(expr.Left, frame, frameVars, ctx, solver)
-				right := ExprToZ3(expr.Right, frame, frameVars, ctx, solver)
+				left := ExprToZ3(expr.Left, frame, limit, frameVars, ctx, solver)
+				right := ExprToZ3(expr.Right, frame, limit, frameVars, ctx, solver)
 
 				implication := ctx.MkBVAnd(left, right)
 
@@ -276,8 +288,9 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 
 			if expr.Op == "Equality" {
 
-				left := ExprToZ3(expr.Left, frame, frameVars, ctx, solver) //parsing empty val- ""
-				right := ExprToZ3(expr.Right, frame, frameVars, ctx, solver)
+				left := ExprToZ3(expr.Left, frame, limit, frameVars, ctx, solver) //parsing empty val- ""
+				//leftImplication := ctx.MkEq(left, ctx.MkBV())
+				right := ExprToZ3(expr.Right, frame, limit, frameVars, ctx, solver)
 
 				equality := ctx.MkEq(left, right) //this is giving the sorts
 				// of bitvec 1 and 32 are incompatible
@@ -287,11 +300,56 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 			}
 
 		}
+
+	case "Binary": //implement non overlapped implication, check json dump to see how |=> ##3 affects n.o.i
+		switch expr.Op {
+
+		case "NonOverlappedImplication": //for assertions k-delay is handled in-function, maybe do that for this too
+			//add switch casing on assumptionExpr to handle this later on
+
+			if frame == 10 { //change this to outside when i move to assumeconstraints  or pass limit, decide later
+				return nil
+			}
+
+			leftWidth := expr.Left.Width
+			left := ExprToZ3(expr.Left, frame, limit, frameVars, ctx, solver)
+			leftTruth := ctx.MkEq(left, ctx.MkBV(1, uint(leftWidth)))
+
+			fmt.Printf("left: %v\n", left)
+
+			rightWidth := expr.Right.Width
+			right := &z3.Expr{}
+			rightTruth := &z3.Expr{}
+
+			if frame != limit { //think about moving framing to assumeconst
+
+				right = ExprToZ3(expr.Right, frame+1, limit, frameVars, ctx, solver)
+				rightTruth = ctx.MkEq(right, ctx.MkBV(1, uint(rightWidth))) //test
+
+				fmt.Printf("right: %v\n", right)
+			}
+
+			/*
+				output from printing:
+
+				left: (bvnot i_pulse_0)
+				right: i_flag_1
+			*/
+
+			impl := ctx.MkImplies(leftTruth, rightTruth) // this may not be delayed
+			//Sort mismatch at argument #1 for function (declare-fun => (Bool Bool) Bool) supplied sort is (_ BitVec 1)
+
+			fmt.Printf("impl: %v\n", impl)
+
+			return impl
+
+		}
+
 	case "ConditionalOp":
 
-		iteIf := ExprToZ3(expr.Args[0], frame, frameVars, ctx, solver)
-		iteThen := ExprToZ3(expr.Args[1], frame, frameVars, ctx, solver)
-		iteElse := ExprToZ3(expr.Args[2], frame, frameVars, ctx, solver)
+		iteIf := ExprToZ3(expr.Args[0], frame, limit, frameVars, ctx, solver)
+		iteThen := ExprToZ3(expr.Args[1], frame, limit, frameVars, ctx, solver)
+		iteElse := ExprToZ3(expr.Args[2], frame, limit, frameVars, ctx, solver)
 
 		return ResolveConditionalITE(ctx, solver, expr, iteIf, iteThen, iteElse, frame)
 
@@ -302,7 +360,7 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, frameVars map[string][]*z3.Expr, ct
 			switch expr.Op {
 
 			case "LogicalNot":
-				left := ExprToZ3(expr.Left, frame, frameVars, ctx, solver)
+				left := ExprToZ3(expr.Left, frame, limit, frameVars, ctx, solver)
 				return ctx.MkBVNot(left)
 
 			}
