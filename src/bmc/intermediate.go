@@ -62,7 +62,7 @@ func AstInstance(ast nodes.SlangAST) (dict map[string]*nodes.IRNode, design node
 
 				switch component.Body.Kind {
 
-				case "ConcurrentAssertion":
+				case "ConcurrentAssertion": //implement immediate assertion later
 
 					if component.Body != nil && component.Body.AssertionKind == "Assert" && component.Body.PropertySpec != nil {
 

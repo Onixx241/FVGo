@@ -260,6 +260,22 @@ func LowerExpr(node nodes.ExpressionNode, dict map[string]*nodes.IRNode) *nodes.
 
 		return e
 
+	case "Binary":
+		switch node.Op {
+
+		case "OverlappedImplication":
+			fallthrough
+		case "NonOverlappedImplication":
+
+			impl := &nodes.ExprIR{Kind: "Binary", Op: node.Op}
+
+			impl.Left = LowerExpr(*node.Left.Expr, dict)
+			impl.Right = LowerExpr(*node.Right.Expr, dict)
+
+			return impl
+
+		}
+
 	case "ConditionalOp":
 
 		c := &nodes.ExprIR{Kind: "ConditionalOp", Type: node.Type, Width: ParseBitWidth(node.Type)}
