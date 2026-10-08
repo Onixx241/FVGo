@@ -159,15 +159,16 @@ func ConstrainAssumptions(assumption *nodes.AssumptionIR, limit int, frameVars m
 		assumptionExpr := ExprToZ3(assumption.AssumptionExpr, i, limit, frameVars, ctx, solver)
 		assumptionBool := &z3.Expr{}
 
-		if assumption.AssumptionExpr.Op == "NonOverlappedImplication" && assumption.AssumptionExpr.Kind == "Binary" {
+		if assumption.AssumptionExpr.Op == "OverlappedImplication" && assumption.AssumptionExpr.Kind == "Binary" {
 
 			assumptionBool = ctx.MkEq(assumptionExpr, trueBool)
 
-		} else { //change else to if regular or overlapped or other impl
+		} else { // NOTE: for some reason overlapped implications only work when equaled to boolean and nonoverlapped only work
+			//when equal to a truth bitvector, possibly due to how im resolving the implications.
 
 			assumptionBool = ctx.MkEq(assumptionExpr, trueBv)
 
-		} //next time look at overlapped implication
+		}
 
 		fmt.Printf("assumptionExpr: %v\n", assumptionExpr)
 
@@ -424,7 +425,7 @@ func EvaluateImplication(nonoverlapped bool, overlapped bool, assumptionExpr *no
 		leftWidth := assumptionExpr.Left.Width
 		leftTruth := ctx.MkEq(left, ctx.MkBV(1, uint(leftWidth)))
 
-		right := ExprToZ3(assumptionExpr, frame, limit, frameVars, ctx, solver)
+		right := ExprToZ3(assumptionExpr.Right, frame, limit, frameVars, ctx, solver)
 		rightWidth := assumptionExpr.Left.Width
 		rightTruth := ctx.MkEq(right, ctx.MkBV(1, uint(rightWidth)))
 
