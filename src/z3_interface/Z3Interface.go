@@ -161,8 +161,7 @@ func ConstrainAssumptions(assumption *nodes.AssumptionIR, limit int, frameVars m
 
 		if assumption.AssumptionExpr.Op == "NonOverlappedImplication" && assumption.AssumptionExpr.Kind == "Binary" {
 
-			assumptionBool = ctx.MkEq(assumptionExpr, trueBool) //returning incompat sorts,
-			// 10-6: !i_rst assumption is casuing bitvec1 and bool incompat sorts
+			assumptionBool = ctx.MkEq(assumptionExpr, trueBool)
 
 		} else { //change else to if regular or overlapped or other impl
 
@@ -304,44 +303,12 @@ func ExprToZ3(expr *nodes.ExprIR, frame int, limit int, frameVars map[string][]*
 	case "Binary": //implement non overlapped implication, check json dump to see how |=> ##3 affects n.o.i
 		switch expr.Op {
 
+		case "OverlappedImplication":
+			return EvaluateImplication(false, true, expr, frame, limit, frameVars, ctx, solver)
+
 		case "NonOverlappedImplication": //for assertions k-delay is handled in-function, maybe do that for this too
 			//add switch casing on assumptionExpr to handle this later on
-
-			if frame == 10 { //change this to outside when i move to assumeconstraints  or pass limit, decide later
-				return nil
-			}
-
-			leftWidth := expr.Left.Width
-			left := ExprToZ3(expr.Left, frame, limit, frameVars, ctx, solver)
-			leftTruth := ctx.MkEq(left, ctx.MkBV(1, uint(leftWidth)))
-
-			fmt.Printf("left: %v\n", left)
-
-			rightWidth := expr.Right.Width
-			right := &z3.Expr{}
-			rightTruth := &z3.Expr{}
-
-			if frame != limit { //think about moving framing to assumeconst
-
-				right = ExprToZ3(expr.Right, frame+1, limit, frameVars, ctx, solver)
-				rightTruth = ctx.MkEq(right, ctx.MkBV(1, uint(rightWidth))) //test
-
-				fmt.Printf("right: %v\n", right)
-			}
-
-			/*
-				output from printing:
-
-				left: (bvnot i_pulse_0)
-				right: i_flag_1
-			*/
-
-			impl := ctx.MkImplies(leftTruth, rightTruth) // this may not be delayed
-			//Sort mismatch at argument #1 for function (declare-fun => (Bool Bool) Bool) supplied sort is (_ BitVec 1)
-
-			fmt.Printf("impl: %v\n", impl)
-
-			return impl
+			return EvaluateImplication(true, false, expr, frame, limit, frameVars, ctx, solver)
 
 		}
 
@@ -410,5 +377,65 @@ func RecurseLeftsForSymbol(expr *nodes.ExprIR) string {
 	}
 
 	return EmptyString
+
+}
+
+func EvaluateImplication(nonoverlapped bool, overlapped bool, assumptionExpr *nodes.ExprIR, frame int, limit int, frameVars map[string][]*z3.Expr, ctx *z3.Context, solver *z3.Solver) *z3.Expr {
+
+	if nonoverlapped && overlapped {
+
+		panic("Implication can't be both !")
+
+	}
+
+	if nonoverlapped { //account for delay and ranges next
+
+		if frame == limit {
+			return nil
+		}
+
+		left := ExprToZ3(assumptionExpr.Left, frame, limit, frameVars, ctx, solver)
+		leftWidth := assumptionExpr.Left.Width
+		leftTruth := ctx.MkEq(left, ctx.MkBV(1, uint(leftWidth)))
+
+		fmt.Printf("left: %v\n", left)
+
+		right := &z3.Expr{}
+		rightWidth := assumptionExpr.Right.Width
+		rightTruth := &z3.Expr{}
+
+		if frame != limit {
+
+			right = ExprToZ3(assumptionExpr.Right, frame+1, limit, frameVars, ctx, solver)
+			rightTruth = ctx.MkEq(right, ctx.MkBV(1, uint(rightWidth)))
+
+			fmt.Printf("right: %v\n", right)
+		}
+
+		impl := ctx.MkImplies(leftTruth, rightTruth)
+
+		fmt.Printf("impl: %v\n", impl)
+
+		return impl
+
+	} else if overlapped { //account for delay and ranges next
+
+		left := ExprToZ3(assumptionExpr.Left, frame, limit, frameVars, ctx, solver)
+		leftWidth := assumptionExpr.Left.Width
+		leftTruth := ctx.MkEq(left, ctx.MkBV(1, uint(leftWidth)))
+
+		right := ExprToZ3(assumptionExpr, frame, limit, frameVars, ctx, solver)
+		rightWidth := assumptionExpr.Left.Width
+		rightTruth := ctx.MkEq(right, ctx.MkBV(1, uint(rightWidth)))
+
+		impl := ctx.MkImplies(leftTruth, rightTruth)
+
+		fmt.Printf("impl: %v\n", impl)
+
+		return impl
+
+	}
+
+	return nil
 
 }
